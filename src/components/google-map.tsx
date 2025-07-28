@@ -85,7 +85,7 @@ export default function GoogleMap({
 
     const dragEndListener = map.addListener("dragend", () => {
       const newCenter = map.getCenter()
-      if (newCenter) {
+      if (newCenter && (newCenter.lat() !== center.lat || newCenter.lng() !== center.lng)) {
         onCenterChanged({ lat: newCenter.lat(), lng: newCenter.lng() })
       }
     })
