@@ -105,7 +105,7 @@ export default function GoogleMap({
 
   // 마커 생성 및 클러스터링
   useEffect(() => {
-    if (!map || !stores.length) return
+    if (!map || !stores.length || !map.getProjection()) return
 
     // 기존 마커 제거
     markers.forEach((marker) => marker.setMap(null))
@@ -193,12 +193,12 @@ export default function GoogleMap({
   // 지도 중심 이동
   useEffect(() => {
     if (map && center) {
-      map.panTo(center)
+      map.panTo(new google.maps.LatLng(center.lat, center.lng));
       if (selectedStore) {
-        map.setZoom(16)
+        map.setZoom(16);
       }
     }
-  }, [map, center, selectedStore])
+  }, [map, center, selectedStore]);
 
   // 선택된 상점 마커 강조
   useEffect(() => {

@@ -20,6 +20,9 @@ export default function MapApp() {
     handleMarkerClick,
     setMapCenter,
     setZoomLevel,
+    institutions,
+    selectedInstitution,
+    handleInstitutionChange,
   } = useStores()
 
   return (
@@ -33,6 +36,9 @@ export default function MapApp() {
         onStoreNameSearch={handleStoreNameSearch}
         onRegionSearch={handleRegionSearch}
         onStoreSelect={handleStoreSelect}
+        onInstitutionChange={handleInstitutionChange}
+        institutions={institutions}
+        selectedInstitution={selectedInstitution}
       />
 
       <div className="flex-1 relative">

@@ -10,6 +10,24 @@ export const useStores = () => {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [mapCenter, setMapCenter] = useState({ lat: 37.5665, lng: 126.978 });
   const [zoomLevel, setZoomLevel] = useState(13);
+  const [institutions, setInstitutions] = useState<string[]>([]);
+  const [selectedInstitution, setSelectedInstitution] = useState<string>("");
+
+  useEffect(() => {
+    const fetchInstitutions = async () => {
+      try {
+        const response = await fetch("http://localhost:8080/api/v1/institutions/names");
+        if (!response.ok) {
+          throw new Error("API 요청에 실패했습니다.");
+        }
+        const data = await response.json();
+        setInstitutions(data.regionNames || []);
+      } catch (error) {
+        console.error("기관 목록을 불러오는 중 오류가 발생했습니다:", error);
+      }
+    };
+    fetchInstitutions();
+  }, []);
 
   const mapCenterRef = useRef(mapCenter);
   useEffect(() => {
@@ -70,8 +88,20 @@ export const useStores = () => {
 
       if (searchResults.length > 0) {
         const firstResult = searchResults[0];
-        setMapCenter({ lat: firstResult.latitude, lng: firstResult.longitude });
-        setZoomLevel(16);
+
+        if (firstResult && typeof firstResult.latitude !== 'undefined' && typeof firstResult.longitude !== 'undefined') {
+          const lat = parseFloat(firstResult.latitude);
+          const lng = parseFloat(firstResult.longitude);
+
+          if (!isNaN(lat) && !isNaN(lng)) {
+            setMapCenter({ lat: lat, lng: lng });
+            setZoomLevel(16);
+          } else {
+            console.warn("Invalid latitude or longitude received for store:", firstResult);
+          }
+        } else {
+          console.warn("Latitude or longitude missing for store:", firstResult);
+        }
       } else {
         setStores([]);
         setFilteredStores([]);
@@ -84,11 +114,11 @@ export const useStores = () => {
   }, [fetchNearbyStores]);
 
   const debouncedStoreNameSearch = useDebouncedCallback((query) => {
-    searchStores("http://localhost:8080/api/v1/local-stores/name", "storeName", query);
+    searchStores("http://localhost:8080/api/v1/local-stores/search/name", "storeName", query);
   }, 500);
 
   const debouncedRegionSearch = useDebouncedCallback((query) => {
-    searchStores("http://localhost:8080/api/v1/local-stores/region", "region", query);
+    searchStores("http://localhost:8080/api/v1/local-stores/search/region", "region", query);
   }, 500);
 
   const handleStoreNameSearch = (query: string) => {
@@ -112,6 +142,15 @@ export const useStores = () => {
     setSelectedStore(store);
   };
 
+  const handleInstitutionChange = (institution: string) => {
+    setSelectedInstitution(institution);
+    if (institution && institution !== "all") {
+      searchStores("http://localhost:8080/api/v1/local-stores/region", "region", institution);
+    } else {
+      fetchNearbyStores(mapCenterRef.current.lat, mapCenterRef.current.lng);
+    }
+  };
+
   return {
     stores,
     filteredStores,
@@ -126,5 +165,8 @@ export const useStores = () => {
     handleMarkerClick,
     setMapCenter,
     setZoomLevel,
+    institutions,
+    selectedInstitution,
+    handleInstitutionChange,
   };
 };
