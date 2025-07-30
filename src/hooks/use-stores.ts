@@ -13,10 +13,12 @@ export const useStores = () => {
   const [institutions, setInstitutions] = useState<string[]>([]);
   const [selectedInstitution, setSelectedInstitution] = useState<string>("");
 
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
   useEffect(() => {
     const fetchInstitutions = async () => {
       try {
-        const response = await fetch("http://localhost:8080/api/v1/institutions/names");
+        const response = await fetch(`${BACKEND_BASE_URL}/api/v1/institutions/names`);
         if (!response.ok) {
           throw new Error("API 요청에 실패했습니다.");
         }
@@ -37,7 +39,7 @@ export const useStores = () => {
   const fetchNearbyStores = useCallback(async (latitude: number, longitude: number) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/v1/local-stores/nearby?latitude=${latitude}&longitude=${longitude}&distance=3000`
+        `${BACKEND_BASE_URL}/api/v1/local-stores/nearby?latitude=${latitude}&longitude=${longitude}&distance=3000`
       );
       if (!response.ok) {
         throw new Error("API 요청에 실패했습니다.");
@@ -114,11 +116,11 @@ export const useStores = () => {
   }, [fetchNearbyStores]);
 
   const debouncedStoreNameSearch = useDebouncedCallback((query) => {
-    searchStores("http://localhost:8080/api/v1/local-stores/search/name", "storeName", query);
+    searchStores(`${BACKEND_BASE_URL}/api/v1/local-stores/search/name`, "storeName", query);
   }, 500);
 
   const debouncedRegionSearch = useDebouncedCallback((query) => {
-    searchStores("http://localhost:8080/api/v1/local-stores/search/region", "region", query);
+    searchStores(`${BACKEND_BASE_URL}/api/v1/local-stores/search/region`, "region", query);
   }, 500);
 
   const handleStoreNameSearch = (query: string) => {
@@ -145,7 +147,7 @@ export const useStores = () => {
   const handleInstitutionChange = (institution: string) => {
     setSelectedInstitution(institution);
     if (institution && institution !== "all") {
-      searchStores("http://localhost:8080/api/v1/local-stores/region", "region", institution);
+      searchStores(`${BACKEND_BASE_URL}/api/v1/local-stores/region`, "region", institution);
     } else {
       fetchNearbyStores(mapCenterRef.current.lat, mapCenterRef.current.lng);
     }
