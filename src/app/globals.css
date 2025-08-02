@@ -120,3 +120,7 @@
     @apply bg-background text-foreground;
   }
 }
+
+.gm-style-iw-ch {
+  padding-top: 0px !important;
+}

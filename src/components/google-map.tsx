@@ -3,22 +3,15 @@
 import { useEffect, useRef, useState } from "react"
 import { Loader } from "@googlemaps/js-api-loader"
 import { GridAlgorithm, MarkerClusterer } from "@googlemaps/markerclusterer"
+import { Store } from "@/types";
 
-interface Store {
-  id: number
-  storeName: string
-  localBill: string
-  region: string
-  roadAddress: string
-  latitude: number
-  longitude: number
-}
+
 
 interface GoogleMapProps {
   stores: Store[]
   center: { lat: number; lng: number }
   selectedStore: Store | null
-  onMarkerClick: (store: Store) => void
+  onMarkerClick: (store: Store | null) => void
   onCenterChanged: (center: { lat: number; lng: number }) => void
   onZoomChanged: (zoom: number) => void
 }
@@ -134,20 +127,6 @@ export default function GoogleMap({
 
       marker.addListener("click", () => {
         onMarkerClick(store)
-
-        if (infoWindow) {
-          infoWindow.setContent(`
-            <div style="padding: 8px; max-width: 250px;">
-              <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold;">${store.storeName}</h3>
-              <p style="margin: 4px 0; font-size: 14px; color: #666;">${store.roadAddress}</p>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                <span style="background: #E5E7EB; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${store.localBill}</span>
-                <span style="font-size: 12px; color: #9CA3AF;">${store.region}</span>
-              </div>
-            </div>
-          `)
-          infoWindow.open(map, marker)
-        }
       })
 
       return marker
@@ -157,7 +136,7 @@ export default function GoogleMap({
     const clusterer = new MarkerClusterer({
       map,
       markers: newMarkers,
-      algorithm: new GridAlgorithm({ gridSize: 60 }),
+      algorithm: new GridAlgorithm({ gridSize: 60, maxZoom: 15 }),
       renderer: {
         render: ({ count, position }) => {
           const color = count > 10 ? "#DC2626" : count > 5 ? "#F59E0B" : "#3B82F6"
@@ -190,6 +169,32 @@ export default function GoogleMap({
     setMarkerClusterer(clusterer)
   }, [map, stores, onMarkerClick, infoWindow])
 
+  // 선택된 가게 정보로 인포윈도우 표시
+  useEffect(() => {
+    if (!map || !infoWindow || !selectedStore) {
+      return;
+    }
+
+    const targetMarker = markers.find(marker => marker.getTitle() === selectedStore.storeName);
+
+    if (targetMarker) {
+      const detailedStore = selectedStore;
+      infoWindow.setContent(`
+        <div style="padding: 8px; max-width: 250px;">
+          <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold;">${detailedStore.storeName}</h3>
+          <p style="margin: 4px 0; font-size: 14px; color: #666; font-weight: bold;">${detailedStore.address}</p>
+          <p style="margin: 4px 0; font-size: 14px;">📞 ${detailedStore.telNumber || '정보 없음'}</p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <span style="background: #E5E7EB; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">${detailedStore.localBill}</span>
+            <span style="font-size: 12px; ">${detailedStore.region}</span>
+          </div>
+        </div>
+      `);
+      infoWindow.open(map, targetMarker);
+    }
+
+  }, [map, infoWindow, selectedStore, markers]);
+
   // 지도 중심 이동
   useEffect(() => {
     if (map && center) {
@@ -220,6 +225,26 @@ export default function GoogleMap({
       })
     })
   }, [selectedStore, markers])
+
+  // 선택된 마커가 지도 bounds 밖으로 벗어나면 선택 해제
+  useEffect(() => {
+    if (!map || !selectedStore) return;
+
+    const listener = map.addListener("bounds_changed", () => {
+      const bounds = map.getBounds();
+      if (!bounds) return;
+
+      const storeLatLng = new google.maps.LatLng(selectedStore.latitude, selectedStore.longitude);
+
+      if (!bounds.contains(storeLatLng)) {
+        onMarkerClick(null); // ✅ 선택 해제
+      }
+    });
+
+    return () => {
+      google.maps.event.removeListener(listener);
+    };
+  }, [map, selectedStore, onMarkerClick]);
 
   return (
     <div className="w-full h-full">

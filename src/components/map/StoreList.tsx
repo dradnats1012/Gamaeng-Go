@@ -8,10 +8,11 @@ interface StoreListProps {
   stores: Store[]
   selectedStore: Store | null
   zoomLevel: number
-  onStoreSelect: (store: Store) => void
+  // onStoreSelect: (store: Store) => void
+  handleStoreSelectById: (storeId: number) => void
 }
 
-export const StoreList = ({ stores, selectedStore, zoomLevel, onStoreSelect }: StoreListProps) => (
+export const StoreList = ({ stores, selectedStore, zoomLevel, handleStoreSelectById }: StoreListProps) => (
   <div className="flex-1 overflow-y-auto">
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -25,7 +26,7 @@ export const StoreList = ({ stores, selectedStore, zoomLevel, onStoreSelect }: S
             key={store.id}
             store={store}
             isSelected={selectedStore?.id === store.id}
-            onClick={() => onStoreSelect(store)}
+            onClick={() => handleStoreSelectById(store.id)}
           />
         ))}
       </div>

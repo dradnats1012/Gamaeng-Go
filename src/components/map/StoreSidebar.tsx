@@ -12,8 +12,8 @@ interface StoreSidebarProps {
   selectedInstitution: string
   onStoreNameSearch: (query: string) => void
   onRegionSearch: (query: string) => void
-  onStoreSelect: (store: Store) => void
   onInstitutionChange: (institution: string) => void
+  handleStoreSelectById: (storeId : number) => void
 }
 
 export const StoreSidebar = ({
@@ -24,9 +24,9 @@ export const StoreSidebar = ({
   regionQuery,
   institutions,
   selectedInstitution,
+  handleStoreSelectById,
   onStoreNameSearch,
   onRegionSearch,
-  onStoreSelect,
   onInstitutionChange,
 }: StoreSidebarProps) => (
   <div className="w-96 bg-white shadow-lg overflow-hidden flex flex-col">
@@ -43,7 +43,7 @@ export const StoreSidebar = ({
       stores={stores}
       selectedStore={selectedStore}
       zoomLevel={zoomLevel}
-      onStoreSelect={onStoreSelect}
+      handleStoreSelectById={handleStoreSelectById}
     />
   </div>
 )

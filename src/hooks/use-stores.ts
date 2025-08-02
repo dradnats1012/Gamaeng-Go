@@ -39,7 +39,7 @@ export const useStores = () => {
   const fetchNearbyStores = useCallback(async (latitude: number, longitude: number) => {
     try {
       const response = await fetch(
-        `${BACKEND_BASE_URL}/api/v1/local-stores/nearby?latitude=${latitude}&longitude=${longitude}&distance=3000`
+        `${BACKEND_BASE_URL}/api/v1/local-stores/nearby/simple?latitude=${latitude}&longitude=${longitude}&distance=3000`
       );
       if (!response.ok) {
         throw new Error("API 요청에 실패했습니다.");
@@ -50,7 +50,25 @@ export const useStores = () => {
     } catch (error) {
       console.error("가맹점 정보를 불러오는 중 오류가 발생했습니다:", error);
     }
-  }, []);
+  }, [BACKEND_BASE_URL]);
+
+  const fetchStoreDetails = useCallback(async (storeId: number) => {
+    try {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/v1/local-stores/${storeId}`);
+      if (!response.ok) {
+        throw new Error("상세 정보 API 요청 실패");
+      }
+      const data: Store = await response.json(); // 상세 정보 타입은 일단 Store로 받습니다.
+      setSelectedStore(data);
+      setMapCenter({ lat: data.latitude, lng: data.longitude });
+    } catch (error) {
+      console.error("가게 상세 정보를 불러오는 중 오류 발생:", error);
+    }
+  }, [BACKEND_BASE_URL]);
+
+  const handleStoreSelectById = (storeId: number) => {
+    fetchStoreDetails(storeId);
+  }
 
   const debouncedFetchNearbyStores = useDebouncedCallback((center) => {
     fetchNearbyStores(center.lat, center.lng);
@@ -140,8 +158,12 @@ export const useStores = () => {
     setMapCenter({ lat: store.latitude, lng: store.longitude });
   };
 
-  const handleMarkerClick = (store: Store) => {
-    setSelectedStore(store);
+  const handleMarkerClick = (store: Store | null) => {
+    if (!store) {
+      setSelectedStore(null); // 선택 해제
+      return;
+    }
+    fetchStoreDetails(store.id);
   };
 
   const handleInstitutionChange = (institution: string) => {
@@ -165,6 +187,7 @@ export const useStores = () => {
     handleRegionSearch,
     handleStoreSelect,
     handleMarkerClick,
+    handleStoreSelectById,
     setMapCenter,
     setZoomLevel,
     institutions,
