@@ -172,7 +172,10 @@ export default function GoogleMap({
 
   // 선택된 가게 정보로 인포윈도우 표시
   useEffect(() => {
-    if (!map || !infoWindow || !selectedStore) {
+    if (!map || !infoWindow) return;
+
+    if (!selectedStore) {
+      infoWindow.close();
       return;
     }
 
@@ -238,6 +241,7 @@ export default function GoogleMap({
       const storeLatLng = new google.maps.LatLng(selectedStore.latitude, selectedStore.longitude);
 
       if (!bounds.contains(storeLatLng)) {
+        console.log("선택된 마커가 지도 범위를 벗어났습니다. 선택 해제합니다.");
         onMarkerClick(null); // ✅ 선택 해제
       }
     });
