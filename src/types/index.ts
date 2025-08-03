@@ -6,7 +6,14 @@ export interface Store {
   roadAddress: string;
   latitude: number;
   longitude: number;
-  telNumber?: string; // 추가
-  sectorName?: string; // 추가
-  address?: string; // 추가
+  telNumber?: string; 
+  sectorName?: string; 
+  address?: string; 
+}
+
+export interface StoreListProps {
+  stores: Store[];
+  selectedStore: Store | null;
+  zoomLevel: number;
+  onStoreSelect: (store: Store) => void;
 }

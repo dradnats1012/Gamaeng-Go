@@ -1,18 +1,10 @@
 
-import { Store } from "@/types"
+import { Store, StoreListProps } from "@/types"
 import { StoreCard } from "./StoreCard"
 import { Badge } from "@/components/ui/badge"
 import { Search } from "lucide-react"
 
-interface StoreListProps {
-  stores: Store[]
-  selectedStore: Store | null
-  zoomLevel: number
-  // onStoreSelect: (store: Store) => void
-  handleStoreSelectById: (storeId: number) => void
-}
-
-export const StoreList = ({ stores, selectedStore, zoomLevel, handleStoreSelectById }: StoreListProps) => (
+export const StoreList = ({ stores, selectedStore, zoomLevel, onStoreSelect }: StoreListProps) => (
   <div className="flex-1 overflow-y-auto">
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -26,7 +18,7 @@ export const StoreList = ({ stores, selectedStore, zoomLevel, handleStoreSelectB
             key={store.id}
             store={store}
             isSelected={selectedStore?.id === store.id}
-            onClick={() => handleStoreSelectById(store.id)}
+            onClick={() => onStoreSelect(store)}
           />
         ))}
       </div>

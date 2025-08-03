@@ -39,7 +39,7 @@ export const useStores = () => {
   const fetchNearbyStores = useCallback(async (latitude: number, longitude: number) => {
     try {
       const response = await fetch(
-        `${BACKEND_BASE_URL}/api/v1/local-stores/nearby/simple?latitude=${latitude}&longitude=${longitude}&distance=3000`
+        `${BACKEND_BASE_URL}/api/v1/local-stores/nearby?latitude=${latitude}&longitude=${longitude}&distance=3000`
       );
       if (!response.ok) {
         throw new Error("API 요청에 실패했습니다.");
@@ -160,7 +160,7 @@ export const useStores = () => {
 
   const handleMarkerClick = (store: Store | null) => {
     if (!store) {
-      setSelectedStore(null); // 선택 해제
+      setSelectedStore(null); 
       return;
     }
     fetchStoreDetails(store.id);

@@ -13,7 +13,7 @@ interface StoreSidebarProps {
   onStoreNameSearch: (query: string) => void
   onRegionSearch: (query: string) => void
   onInstitutionChange: (institution: string) => void
-  handleStoreSelectById: (storeId : number) => void
+  onStoreSelect: (store: Store) => void
 }
 
 export const StoreSidebar = ({
@@ -24,7 +24,7 @@ export const StoreSidebar = ({
   regionQuery,
   institutions,
   selectedInstitution,
-  handleStoreSelectById,
+  onStoreSelect,
   onStoreNameSearch,
   onRegionSearch,
   onInstitutionChange,
@@ -43,7 +43,7 @@ export const StoreSidebar = ({
       stores={stores}
       selectedStore={selectedStore}
       zoomLevel={zoomLevel}
-      handleStoreSelectById={handleStoreSelectById}
+      onStoreSelect={onStoreSelect}
     />
   </div>
 )

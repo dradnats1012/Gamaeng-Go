@@ -101,7 +101,8 @@ export default function GoogleMap({
     if (!map || !stores.length || !map.getProjection()) return
 
     // 기존 마커 제거
-    markers.forEach((marker) => marker.setMap(null))
+    //markers.forEach((marker) => marker.setMap(null))
+    
     if (markerClusterer) {
       markerClusterer.clearMarkers()
     }
@@ -226,7 +227,7 @@ export default function GoogleMap({
     })
   }, [selectedStore, markers])
 
-  // 선택된 마커가 지도 bounds 밖으로 벗어나면 선택 해제
+  //선택된 마커가 지도 bounds 밖으로 벗어나면 선택 해제
   useEffect(() => {
     if (!map || !selectedStore) return;
 
