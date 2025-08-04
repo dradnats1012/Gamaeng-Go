@@ -110,7 +110,7 @@ export const useStores = () => {
   }, 500);
 
   useEffect(() => {
-    if (zoomLevel >= 15) {
+    if (zoomLevel >= 14) {
       debouncedFetchNearbyStoresByBounds();
     } else {
       setStores([]);

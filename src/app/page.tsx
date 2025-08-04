@@ -1,9 +1,10 @@
 'use client'
 import { Button } from "@/components/ui/button"
-import { Navigation } from "lucide-react"
+import { Navigation, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import GoogleMap from "@/components/google-map"
 import { useStores } from "@/hooks/use-stores"
 import { StoreSidebar } from "@/components/map/StoreSidebar"
+import { useState } from "react"
 
 export default function MapApp() {
   const {
@@ -25,24 +26,38 @@ export default function MapApp() {
     selectedInstitution,
     handleInstitutionChange,
   } = useStores()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <StoreSidebar
-        stores={filteredStores}
-        selectedStore={selectedStore}
-        zoomLevel={zoomLevel}
-        storeNameQuery={storeNameQuery}
-        regionQuery={regionQuery}
-        onStoreNameSearch={handleStoreNameSearch}
-        onRegionSearch={handleRegionSearch}
-        onStoreSelect={handleStoreSelect}
-        onInstitutionChange={handleInstitutionChange}
-        institutions={institutions}
-        selectedInstitution={selectedInstitution}
-      />
+      {isSidebarOpen && (
+        <StoreSidebar
+          stores={filteredStores}
+          selectedStore={selectedStore}
+          zoomLevel={zoomLevel}
+          storeNameQuery={storeNameQuery}
+          regionQuery={regionQuery}
+          onStoreNameSearch={handleStoreNameSearch}
+          onRegionSearch={handleRegionSearch}
+          onStoreSelect={handleStoreSelect}
+          onInstitutionChange={handleInstitutionChange}
+          institutions={institutions}
+          selectedInstitution={selectedInstitution}
+        />
+      )}
 
       <div className="flex-1 relative">
+        <Button
+          size="icon"
+          className="absolute top-4 left-4 z-10 shadow-lg"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          {isSidebarOpen ? (
+            <PanelLeftClose className="h-4 w-4" />
+          ) : (
+            <PanelLeftOpen className="h-4 w-4" />
+          )}
+        </Button>
         <GoogleMap
           stores={filteredStores}
           center={mapCenter}

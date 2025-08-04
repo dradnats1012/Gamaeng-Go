@@ -23,8 +23,8 @@ export default function GoogleMap({
   selectedStore,
   onMarkerClick,
   onCenterChanged,
+  onBoundsChanged,
   onZoomChanged,
-  onBoundsChanged
 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<google.maps.Map | null>(null)
