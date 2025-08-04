@@ -52,6 +52,22 @@ export const useStores = () => {
     }
   }, [BACKEND_BASE_URL]);
 
+  const fetchNearbyStoresByLineString = useCallback(async (leftLatitude: number, leftLongitude: number, rightLatitude: number, rightLongitude: number) => {
+    try {
+      const response = await fetch(
+        `${BACKEND_BASE_URL}/api/local-stores/nearby/linestring?leftLatitude=${leftLatitude}&leftLongitude=${leftLongitude}&rightLatitude=${rightLatitude}&rightLongitude=${rightLongitude}`
+      );
+      if (!response.ok) {
+        throw new Error("API 요청에 실패했습니다.");
+      }
+      const data: Store[] = await response.json();
+      setStores(data);
+      setFilteredStores(data);
+    } catch (error) {
+      console.error("가맹점 정보를 불러오는 중 오류가 발생했습니다:", error);
+    }
+  }, [BACKEND_BASE_URL]);
+
   const fetchStoreDetails = useCallback(async (storeId: number) => {
     try {
       const response = await fetch(`${BACKEND_BASE_URL}/api/local-stores/${storeId}`);
@@ -74,14 +90,33 @@ export const useStores = () => {
     fetchNearbyStores(center.lat, center.lng);
   }, 500);
 
+  const mapBoundsRef = useRef<google.maps.LatLngBounds | null>(null);
+  
+  const setMapBounds = (bounds: google.maps.LatLngBounds) => {
+    mapBoundsRef.current = bounds;
+  };
+
+  const debouncedFetchNearbyStoresByBounds = useDebouncedCallback(() => {
+    const bounds = mapBoundsRef.current;
+    if (!bounds) return;
+  
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+  
+    fetchNearbyStoresByLineString(
+      sw.lat(), sw.lng(), // 왼쪽 아래
+      ne.lat(), ne.lng()  // 오른쪽 위
+    );
+  }, 500);
+
   useEffect(() => {
-    if (zoomLevel >= 14) {
-      debouncedFetchNearbyStores(mapCenter);
+    if (zoomLevel >= 15) {
+      debouncedFetchNearbyStoresByBounds();
     } else {
       setStores([]);
       setFilteredStores([]);
     }
-  }, [mapCenter, zoomLevel, debouncedFetchNearbyStores]);
+  }, [zoomLevel, debouncedFetchNearbyStoresByBounds]);
 
   const searchStores = useCallback(async (url: string, paramName: string, query: string) => {
     if (!query.trim()) {
@@ -190,6 +225,7 @@ export const useStores = () => {
     handleStoreSelectById,
     setMapCenter,
     setZoomLevel,
+    setMapBounds,
     institutions,
     selectedInstitution,
     handleInstitutionChange,

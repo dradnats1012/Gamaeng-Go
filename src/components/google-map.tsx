@@ -14,6 +14,7 @@ interface GoogleMapProps {
   onMarkerClick: (store: Store | null) => void
   onCenterChanged: (center: { lat: number; lng: number }) => void
   onZoomChanged: (zoom: number) => void
+  onBoundsChanged: (bounds: google.maps.LatLngBounds) => void;
 }
 
 export default function GoogleMap({
@@ -23,6 +24,7 @@ export default function GoogleMap({
   onMarkerClick,
   onCenterChanged,
   onZoomChanged,
+  onBoundsChanged
 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<google.maps.Map | null>(null)
@@ -77,18 +79,28 @@ export default function GoogleMap({
     if (!map) return
 
     const dragEndListener = map.addListener("dragend", () => {
-      const newCenter = map.getCenter()
-      if (newCenter && (newCenter.lat() !== center.lat || newCenter.lng() !== center.lng)) {
-        onCenterChanged({ lat: newCenter.lat(), lng: newCenter.lng() })
+      const newCenter = map.getCenter();
+      if (newCenter) {
+        onCenterChanged({ lat: newCenter.lat(), lng: newCenter.lng() });
       }
-    })
-
+    
+      const bounds = map.getBounds();
+      if (bounds) {
+        onBoundsChanged(bounds);
+      }
+    });
+    
     const zoomListener = map.addListener("zoom_changed", () => {
-      const newZoom = map.getZoom()
-      if (newZoom) {
-        onZoomChanged(newZoom)
+      const newZoom = map.getZoom();
+      if (newZoom !== undefined) {
+        onZoomChanged(newZoom);
       }
-    })
+    
+      const bounds = map.getBounds();
+      if (bounds) {
+        onBoundsChanged(bounds);
+      }
+    });
 
     return () => {
       google.maps.event.removeListener(dragEndListener)

@@ -20,6 +20,7 @@ export default function MapApp() {
     handleMarkerClick,
     setMapCenter,
     setZoomLevel,
+    setMapBounds,
     institutions,
     selectedInstitution,
     handleInstitutionChange,
@@ -49,6 +50,7 @@ export default function MapApp() {
           onMarkerClick={handleMarkerClick}
           onCenterChanged={setMapCenter}
           onZoomChanged={setZoomLevel}
+          onBoundsChanged={setMapBounds}
         />
 
         <Button
