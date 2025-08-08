@@ -15,9 +15,9 @@ export const StoreList = ({ stores, selectedStore, zoomLevel, onStoreSelect }: S
       <div className="space-y-3">
         {stores.map((store) => (
           <StoreCard
-            key={store.id}
+            key={store.uuid}
             store={store}
-            isSelected={selectedStore?.id === store.id}
+            isSelected={selectedStore?.uuid === store.uuid}
             onClick={() => onStoreSelect(store)}
           />
         ))}

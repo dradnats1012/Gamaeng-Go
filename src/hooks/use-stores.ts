@@ -71,9 +71,9 @@ export const useStores = () => {
     }
   }, [BACKEND_BASE_URL]);
 
-  const fetchStoreDetails = useCallback(async (storeId: number) => {
+  const fetchStoreDetails = useCallback(async (storeUuid: string) => {
     try {
-      const response = await fetch(`${BACKEND_BASE_URL}/api/local-stores/${storeId}`);
+      const response = await fetch(`${BACKEND_BASE_URL}/api/local-stores/${storeUuid}`);
       if (!response.ok) {
         throw new Error("상세 정보 API 요청 실패");
       }
@@ -85,8 +85,8 @@ export const useStores = () => {
     }
   }, [BACKEND_BASE_URL]);
 
-  const handleStoreSelectById = (storeId: number) => {
-    fetchStoreDetails(storeId);
+  const handleStoreSelectById = (storeUuid: string) => {
+    fetchStoreDetails(storeUuid);
   }
 
   const debouncedFetchNearbyStores = useDebouncedCallback((center) => {
@@ -201,7 +201,7 @@ export const useStores = () => {
       setSelectedStore(null); 
       return;
     }
-    fetchStoreDetails(store.id);
+    fetchStoreDetails(store.uuid);
   };
 
   const handleInstitutionChange = (institution: string) => {

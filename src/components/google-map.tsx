@@ -124,7 +124,7 @@ export default function GoogleMap({
       const marker = new google.maps.Marker({
         position: { lat: store.latitude, lng: store.longitude },
         //title: store.storeName,
-        title: store.id.toString(), // 마커의 title을 storeName 대신 id로 설정
+        title: store.uuid, // 마커의 title을 storeName 대신 uuid로 설정
         icon: {
           url:
             "data:image/svg+xml;charset=UTF-8," +
@@ -192,7 +192,7 @@ export default function GoogleMap({
       return;
     }
 
-    const targetMarker = markers.find(marker => marker.getTitle() === selectedStore.id.toString());
+    const targetMarker = markers.find(marker => marker.getTitle() === selectedStore.uuid);
 
     if (targetMarker) {
       const detailedStore = selectedStore;
@@ -227,7 +227,7 @@ export default function GoogleMap({
     if (!selectedStore || !markers.length) return
 
     markers.forEach((marker) => {
-      const isSelected = marker.getTitle() === selectedStore.id.toString()
+      const isSelected = marker.getTitle() === selectedStore.uuid
       marker.setIcon({
         url:
           "data:image/svg+xml;charset=UTF-8," +

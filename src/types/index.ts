@@ -1,5 +1,5 @@
 export interface Store {
-  id: number;
+  uuid: string;
   storeName: string;
   localBill: string;
   region: string;
@@ -19,7 +19,7 @@ export interface StoreListProps {
 }
 
 export interface SimpleStore {
-  id: number;
+  uuid: string;
   latitude: number;
   longitude: number;
 }
