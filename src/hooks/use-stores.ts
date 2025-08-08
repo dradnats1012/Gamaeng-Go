@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { Store } from "@/types";
+import { Store, SimpleStore } from "@/types";
 
 export const useStores = () => {
   const [stores, setStores] = useState<Store[]>([]);
+  const [markerStores, setMarkerStores] = useState<SimpleStore[]>([]); // 마커용 데이터
   const [filteredStores, setFilteredStores] = useState<Store[]>([]);
   const [storeNameQuery, setStoreNameQuery] = useState("");
   const [regionQuery, setRegionQuery] = useState("");
@@ -12,6 +13,8 @@ export const useStores = () => {
   const [zoomLevel, setZoomLevel] = useState(13);
   const [institutions, setInstitutions] = useState<string[]>([]);
   const [selectedInstitution, setSelectedInstitution] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -92,9 +95,9 @@ export const useStores = () => {
 
   const mapBoundsRef = useRef<google.maps.LatLngBounds | null>(null);
   
-  const setMapBounds = (bounds: google.maps.LatLngBounds) => {
-    mapBoundsRef.current = bounds;
-  };
+  // const setMapBounds = (bounds: google.maps.LatLngBounds) => {
+  //   mapBoundsRef.current = bounds;
+  // };
 
   const debouncedFetchNearbyStoresByBounds = useDebouncedCallback(() => {
     const bounds = mapBoundsRef.current;
@@ -110,7 +113,7 @@ export const useStores = () => {
   }, 500);
 
   useEffect(() => {
-    if (zoomLevel >= 14) {
+    if (zoomLevel >= 15) {
       debouncedFetchNearbyStoresByBounds();
     } else {
       setStores([]);
@@ -193,7 +196,7 @@ export const useStores = () => {
     setMapCenter({ lat: store.latitude, lng: store.longitude });
   };
 
-  const handleMarkerClick = (store: Store | null) => {
+  const handleMarkerClick = (store: SimpleStore | null) => {
     if (!store) {
       setSelectedStore(null); 
       return;
@@ -210,8 +213,45 @@ export const useStores = () => {
     }
   };
 
+  const fetchMarkers = useCallback(async (leftLatitude: number, leftLongitude: number, rightLatitude: number, rightLongitude: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `${BACKEND_BASE_URL}/api/local-stores/nearby/marker?leftLatitude=${leftLatitude}&leftLongitude=${leftLongitude}&rightLatitude=${rightLatitude}&rightLongitude=${rightLongitude}`
+      );
+      if (!response.ok) {
+        throw new Error('마커 정보를 불러오는데 실패했습니다.');
+      }
+      const data: SimpleStore[] = await response.json();
+      setMarkerStores(data);
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [BACKEND_BASE_URL]);
+
+  
+// 지도 경계가 변경될 때 호출될 디바운스된 함수
+const debouncedFetchMarkersByBounds = useDebouncedCallback(() => {
+  const bounds = mapBoundsRef.current;
+  if (bounds) {
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    fetchMarkers(sw.lat(), sw.lng(), ne.lat(), ne.lng());
+  }
+}, 500); // 500ms 디바운스
+
+// setMapBounds 함수 수정: 경계 설정 후 디바운스된 마커 fetch 호출
+const setMapBounds = useCallback((bounds: google.maps.LatLngBounds) => {
+  mapBoundsRef.current = bounds;
+  debouncedFetchMarkersByBounds(); // 경계가 설정되면 마커 fetch를 디바운스하여 호출
+}, [debouncedFetchMarkersByBounds]);
+
   return {
     stores,
+    markerStores,
     filteredStores,
     storeNameQuery,
     regionQuery,
@@ -229,5 +269,10 @@ export const useStores = () => {
     institutions,
     selectedInstitution,
     handleInstitutionChange,
+    error,
+    isLoading,
+    fetchNearbyStores,
+    fetchNearbyStoresByLineString,
+    fetchMarkers,
   };
 };

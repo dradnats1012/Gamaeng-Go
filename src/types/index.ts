@@ -17,3 +17,9 @@ export interface StoreListProps {
   zoomLevel: number;
   onStoreSelect: (store: Store) => void;
 }
+
+export interface SimpleStore {
+  id: number;
+  latitude: number;
+  longitude: number;
+}

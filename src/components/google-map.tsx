@@ -3,15 +3,15 @@
 import { useEffect, useRef, useState } from "react"
 import { Loader } from "@googlemaps/js-api-loader"
 import { GridAlgorithm, MarkerClusterer } from "@googlemaps/markerclusterer"
-import { Store } from "@/types";
+import { SimpleStore, Store } from "@/types";
 
 
 
 interface GoogleMapProps {
-  stores: Store[]
+  stores: SimpleStore[]
   center: { lat: number; lng: number }
   selectedStore: Store | null
-  onMarkerClick: (store: Store | null) => void
+  onMarkerClick: (store: SimpleStore | null) => void
   onCenterChanged: (center: { lat: number; lng: number }) => void
   onZoomChanged: (zoom: number) => void
   onBoundsChanged: (bounds: google.maps.LatLngBounds) => void;
@@ -123,7 +123,8 @@ export default function GoogleMap({
     const newMarkers = stores.map((store) => {
       const marker = new google.maps.Marker({
         position: { lat: store.latitude, lng: store.longitude },
-        title: store.storeName,
+        //title: store.storeName,
+        title: store.id.toString(), // 마커의 title을 storeName 대신 id로 설정
         icon: {
           url:
             "data:image/svg+xml;charset=UTF-8," +
@@ -149,7 +150,7 @@ export default function GoogleMap({
     const clusterer = new MarkerClusterer({
       map,
       markers: newMarkers,
-      algorithm: new GridAlgorithm({ gridSize: 60, maxZoom: 15 }),
+      algorithm: new GridAlgorithm({ gridSize: 60, maxZoom: 16 }),
       renderer: {
         render: ({ count, position }) => {
           const color = count > 10 ? "#DC2626" : count > 5 ? "#F59E0B" : "#3B82F6"
@@ -191,7 +192,7 @@ export default function GoogleMap({
       return;
     }
 
-    const targetMarker = markers.find(marker => marker.getTitle() === selectedStore.storeName);
+    const targetMarker = markers.find(marker => marker.getTitle() === selectedStore.id.toString());
 
     if (targetMarker) {
       const detailedStore = selectedStore;
@@ -215,9 +216,9 @@ export default function GoogleMap({
   useEffect(() => {
     if (map && center) {
       map.panTo(new google.maps.LatLng(center.lat, center.lng));
-      if (selectedStore) {
-        map.setZoom(16);
-      }
+      // if (selectedStore) {
+      //   map.setZoom(16);
+      // }
     }
   }, [map, center, selectedStore]);
 
@@ -226,7 +227,7 @@ export default function GoogleMap({
     if (!selectedStore || !markers.length) return
 
     markers.forEach((marker) => {
-      const isSelected = marker.getTitle() === selectedStore.storeName
+      const isSelected = marker.getTitle() === selectedStore.id.toString()
       marker.setIcon({
         url:
           "data:image/svg+xml;charset=UTF-8," +

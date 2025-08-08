@@ -4,11 +4,13 @@ import { Navigation, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import GoogleMap from "@/components/google-map"
 import { useStores } from "@/hooks/use-stores"
 import { StoreSidebar } from "@/components/map/StoreSidebar"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { Store, SimpleStore } from "@/types"
 
 export default function MapApp() {
   const {
     stores,
+    markerStores,
     filteredStores,
     storeNameQuery,
     regionQuery,
@@ -18,6 +20,8 @@ export default function MapApp() {
     handleStoreNameSearch,
     handleRegionSearch,
     handleStoreSelect,
+    fetchMarkers,
+    //fetchStoreDetails,
     handleMarkerClick,
     setMapCenter,
     setZoomLevel,
@@ -59,7 +63,7 @@ export default function MapApp() {
           )}
         </Button>
         <GoogleMap
-          stores={filteredStores}
+          stores={markerStores}
           center={mapCenter}
           selectedStore={selectedStore}
           onMarkerClick={handleMarkerClick}
