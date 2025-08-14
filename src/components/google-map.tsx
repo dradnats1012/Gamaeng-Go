@@ -71,7 +71,6 @@ export default function GoogleMap({
     }
 
     initMap()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 지도 이벤트 리스너 (최적화)
