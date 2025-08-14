@@ -172,7 +172,8 @@ export const useStores = () => {
   }, [fetchNearbyStores]);
 
   const debouncedStoreNameSearch = useDebouncedCallback((query) => {
-    searchStores(`${BACKEND_BASE_URL}/api/local-stores/search/name`, "storeName", query);
+    searchStores(`${BACKEND_BASE_URL}/api/local-stores/search/name`, "name", query);
+    //searchStores(`${BACKEND_BASE_URL}/shards/search`, "q", query);
   }, 500);
 
   const debouncedRegionSearch = useDebouncedCallback((query) => {
