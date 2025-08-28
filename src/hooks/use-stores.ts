@@ -3,6 +3,7 @@ import { useDebouncedCallback } from "use-debounce";
 import { Store, SimpleStore } from "@/types";
 
 export const useStores = () => {
+  const ZOOM_THRESHOLD = 15;
   const [stores, setStores] = useState<Store[]>([]);
   const [markerStores, setMarkerStores] = useState<SimpleStore[]>([]); // 마커용 데이터
   const [filteredStores, setFilteredStores] = useState<Store[]>([]);
@@ -11,6 +12,7 @@ export const useStores = () => {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [mapCenter, setMapCenter] = useState({ lat: 37.5665, lng: 126.978 });
   const [zoomLevel, setZoomLevel] = useState(13);
+  const zoomLevelRef = useRef(zoomLevel);
   const [institutions, setInstitutions] = useState<string[]>([]);
   const [selectedInstitution, setSelectedInstitution] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +20,7 @@ export const useStores = () => {
 
   const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
+  // 기관 목록 - BASE_URL 의존성 추가
   useEffect(() => {
     const fetchInstitutions = async () => {
       try {
@@ -32,12 +35,16 @@ export const useStores = () => {
       }
     };
     fetchInstitutions();
-  }, []);
+  }, [BACKEND_BASE_URL]);
 
   const mapCenterRef = useRef(mapCenter);
   useEffect(() => {
     mapCenterRef.current = mapCenter;
   }, [mapCenter]);
+
+  useEffect(() => {
+    zoomLevelRef.current = zoomLevel;
+  }, [zoomLevel]);
 
   const fetchNearbyStores = useCallback(async (latitude: number, longitude: number) => {
     try {
@@ -77,7 +84,7 @@ export const useStores = () => {
       if (!response.ok) {
         throw new Error("상세 정보 API 요청 실패");
       }
-      const data: Store = await response.json(); // 상세 정보 타입은 일단 Store로 받습니다.
+      const data: Store = await response.json();
       setSelectedStore(data);
       setMapCenter({ lat: data.latitude, lng: data.longitude });
     } catch (error) {
@@ -87,93 +94,130 @@ export const useStores = () => {
 
   const handleStoreSelectById = (storeUuid: string) => {
     fetchStoreDetails(storeUuid);
-  }
+  };
 
   const debouncedFetchNearbyStores = useDebouncedCallback((center) => {
     fetchNearbyStores(center.lat, center.lng);
   }, 500);
 
   const mapBoundsRef = useRef<google.maps.LatLngBounds | null>(null);
-  
-  // const setMapBounds = (bounds: google.maps.LatLngBounds) => {
-  //   mapBoundsRef.current = bounds;
-  // };
 
+  // 마커 API
+  const fetchMarkers = useCallback(
+    async (leftLatitude: number, leftLongitude: number, rightLatitude: number, rightLongitude: number) => {
+      if (zoomLevelRef.current < ZOOM_THRESHOLD) return; // 이중 안전장치
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(
+          `${BACKEND_BASE_URL}/api/local-stores/nearby/marker?leftLatitude=${leftLatitude}&leftLongitude=${leftLongitude}&rightLatitude=${rightLatitude}&rightLongitude=${rightLongitude}`
+        );
+        if (!response.ok) {
+          throw new Error("마커 정보를 불러오는데 실패했습니다.");
+        }
+        const data: SimpleStore[] = await response.json();
+        setMarkerStores(data);
+      } catch (error: any) {
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [BACKEND_BASE_URL]
+  );
+
+  // 마커: 경계 기반 디바운스
+  const debouncedFetchMarkersByBounds = useDebouncedCallback(() => {
+    const bounds = mapBoundsRef.current;
+    if (bounds && zoomLevelRef.current >= ZOOM_THRESHOLD) {
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      fetchMarkers(sw.lat(), sw.lng(), ne.lat(), ne.lng());
+    }
+  }, 500);
+
+  // 목록: 경계 기반 디바운스
   const debouncedFetchNearbyStoresByBounds = useDebouncedCallback(() => {
     const bounds = mapBoundsRef.current;
     if (!bounds) return;
-  
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
-  
-    fetchNearbyStoresByLineString(
-      sw.lat(), sw.lng(), // 왼쪽 아래
-      ne.lat(), ne.lng()  // 오른쪽 위
-    );
+    fetchNearbyStoresByLineString(sw.lat(), sw.lng(), ne.lat(), ne.lng());
   }, 500);
 
+  // 줌 기준으로 목록/마커 동기화
   useEffect(() => {
-    if (zoomLevel >= 15) {
+    if (zoomLevel >= ZOOM_THRESHOLD) {
       debouncedFetchNearbyStoresByBounds();
+      debouncedFetchMarkersByBounds();
     } else {
       setStores([]);
       setFilteredStores([]);
+      setMarkerStores([]);
     }
-  }, [zoomLevel, debouncedFetchNearbyStoresByBounds]);
+  }, [zoomLevel, debouncedFetchNearbyStoresByBounds, debouncedFetchMarkersByBounds]);
 
-  const searchStores = useCallback(async (url: string, paramName: string, query: string) => {
-    if (!query.trim()) {
-      fetchNearbyStores(mapCenterRef.current.lat, mapCenterRef.current.lng);
-      return;
-    }
-
-    try {
-      const params = new URLSearchParams({
-        [paramName]: query,
-        page: "0",
-        size: "20",
-      });
-      const response = await fetch(`${url}?${params.toString()}`);
-
-      if (!response.ok) {
-        throw new Error(`API 요청 실패: ${response.status}`);
+  const searchStores = useCallback(
+    async (url: string, paramName: string, query: string) => {
+      if (!query.trim()) {
+        fetchNearbyStores(mapCenterRef.current.lat, mapCenterRef.current.lng);
+        return;
       }
-      const data = await response.json();
-      const searchResults = data.content || [];
 
-      setStores(searchResults);
-      setFilteredStores(searchResults);
+      try {
+        const params = new URLSearchParams({
+          [paramName]: query,
+          page: "0",
+          size: "20",
+        });
+        const response = await fetch(`${url}?${params.toString()}`);
 
-      if (searchResults.length > 0) {
-        const firstResult = searchResults[0];
+        if (!response.ok) {
+          throw new Error(`API 요청 실패: ${response.status}`);
+        }
+        const data = await response.json();
+        const searchResults = data.content || [];
 
-        if (firstResult && typeof firstResult.latitude !== 'undefined' && typeof firstResult.longitude !== 'undefined') {
-          const lat = parseFloat(firstResult.latitude);
-          const lng = parseFloat(firstResult.longitude);
+        setStores(searchResults);
+        setFilteredStores(searchResults);
 
-          if (!isNaN(lat) && !isNaN(lng)) {
-            setMapCenter({ lat: lat, lng: lng });
-            setZoomLevel(16);
+        if (searchResults.length > 0) {
+          const firstResult = searchResults[0];
+
+          if (
+            firstResult &&
+            typeof firstResult.latitude !== "undefined" &&
+            typeof firstResult.longitude !== "undefined"
+          ) {
+            const lat = parseFloat(firstResult.latitude);
+            const lng = parseFloat(firstResult.longitude);
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+              setMapCenter({ lat, lng });
+              setZoomLevel(16);
+              // 검색 직후 마커도 즉시 동기화
+              if (mapBoundsRef.current) debouncedFetchMarkersByBounds();
+            } else {
+              console.warn("Invalid latitude or longitude received for store:", firstResult);
+            }
           } else {
-            console.warn("Invalid latitude or longitude received for store:", firstResult);
+            console.warn("Latitude or longitude missing for store:", firstResult);
           }
         } else {
-          console.warn("Latitude or longitude missing for store:", firstResult);
+          setStores([]);
+          setFilteredStores([]);
         }
-      } else {
+      } catch (error) {
+        console.error("검색 중 오류가 발생했습니다:", error);
         setStores([]);
         setFilteredStores([]);
       }
-    } catch (error) {
-      console.error("검색 중 오류가 발생했습니다:", error);
-      setStores([]);
-      setFilteredStores([]);
-    }
-  }, [fetchNearbyStores]);
+    },
+    [fetchNearbyStores, debouncedFetchMarkersByBounds]
+  );
 
   const debouncedStoreNameSearch = useDebouncedCallback((query) => {
     searchStores(`${BACKEND_BASE_URL}/api/local-stores/search/name`, "name", query);
-    //searchStores(`${BACKEND_BASE_URL}/shards/search`, "q", query);
   }, 500);
 
   const debouncedRegionSearch = useDebouncedCallback((query) => {
@@ -199,7 +243,7 @@ export const useStores = () => {
 
   const handleMarkerClick = (store: SimpleStore | null) => {
     if (!store) {
-      setSelectedStore(null); 
+      setSelectedStore(null);
       return;
     }
     fetchStoreDetails(store.uuid);
@@ -214,41 +258,16 @@ export const useStores = () => {
     }
   };
 
-  const fetchMarkers = useCallback(async (leftLatitude: number, leftLongitude: number, rightLatitude: number, rightLongitude: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(
-        `${BACKEND_BASE_URL}/api/local-stores/nearby/marker?leftLatitude=${leftLatitude}&leftLongitude=${leftLongitude}&rightLatitude=${rightLatitude}&rightLongitude=${rightLongitude}`
-      );
-      if (!response.ok) {
-        throw new Error('마커 정보를 불러오는데 실패했습니다.');
+  // setMapBounds: 경계 설정 후(줌 충분할 때만) 디바운스 호출
+  const setMapBounds = useCallback(
+    (bounds: google.maps.LatLngBounds) => {
+      mapBoundsRef.current = bounds;
+      if (zoomLevelRef.current >= ZOOM_THRESHOLD) {
+        debouncedFetchMarkersByBounds();
       }
-      const data: SimpleStore[] = await response.json();
-      setMarkerStores(data);
-    } catch (error: any) {
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [BACKEND_BASE_URL]);
-
-  
-// 지도 경계가 변경될 때 호출될 디바운스된 함수
-const debouncedFetchMarkersByBounds = useDebouncedCallback(() => {
-  const bounds = mapBoundsRef.current;
-  if (bounds) {
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    fetchMarkers(sw.lat(), sw.lng(), ne.lat(), ne.lng());
-  }
-}, 500); // 500ms 디바운스
-
-// setMapBounds 함수 수정: 경계 설정 후 디바운스된 마커 fetch 호출
-const setMapBounds = useCallback((bounds: google.maps.LatLngBounds) => {
-  mapBoundsRef.current = bounds;
-  debouncedFetchMarkersByBounds(); // 경계가 설정되면 마커 fetch를 디바운스하여 호출
-}, [debouncedFetchMarkersByBounds]);
+    },
+    [debouncedFetchMarkersByBounds]
+  );
 
   return {
     stores,

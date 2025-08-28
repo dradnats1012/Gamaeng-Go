@@ -107,23 +107,24 @@ export default function GoogleMap({
     }
   }, [map, onCenterChanged, onZoomChanged])
 
-  // 마커 생성 및 클러스터링
-  useEffect(() => {
-    if (!map || !stores.length || !map.getProjection()) return
 
-    // 기존 마커 제거
-    //markers.forEach((marker) => marker.setMap(null))
-    
+  useEffect(() => {
+    if (!map || !map.getProjection()) return
+
     if (markerClusterer) {
       markerClusterer.clearMarkers()
+    }
+
+    if (stores.length === 0) {
+      setMarkers([]);
+      return;
     }
 
     // 새 마커 생성
     const newMarkers = stores.map((store) => {
       const marker = new google.maps.Marker({
         position: { lat: store.latitude, lng: store.longitude },
-        //title: store.storeName,
-        title: store.uuid, // 마커의 title을 storeName 대신 uuid로 설정
+        title: store.uuid, 
         icon: {
           url:
             "data:image/svg+xml;charset=UTF-8," +
@@ -211,13 +212,9 @@ export default function GoogleMap({
 
   }, [map, infoWindow, selectedStore, markers]);
 
-  // 지도 중심 이동
   useEffect(() => {
     if (map && center) {
       map.panTo(new google.maps.LatLng(center.lat, center.lng));
-      // if (selectedStore) {
-      //   map.setZoom(16);
-      // }
     }
   }, [map, center, selectedStore]);
 
