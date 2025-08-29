@@ -29,7 +29,7 @@ export const StoreSidebar = ({
   onRegionSearch,
   onInstitutionChange,
 }: StoreSidebarProps) => (
-  <div className="min-w-96 bg-white shadow-lg overflow-hidden flex flex-col">
+  <div className="w-1/4 max-w-md min-w-80 bg-white shadow-lg overflow-hidden flex flex-col">
     <StoreSearch
       storeNameQuery={storeNameQuery}
       regionQuery={regionQuery}
