@@ -217,7 +217,7 @@ export const useStores = () => {
   );
 
   const debouncedStoreNameSearch = useDebouncedCallback((query) => {
-    searchStores(`${BACKEND_BASE_URL}/api/local-stores/search/name`, "name", query);
+    searchStores(`${BACKEND_BASE_URL}/api/local-stores/search/name`, "storeName", query);
   }, 500);
 
   const debouncedRegionSearch = useDebouncedCallback((query) => {
