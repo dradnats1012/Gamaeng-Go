@@ -1,7 +1,7 @@
 'use client'
 import { Button } from "@/components/ui/button"
 import { Navigation, PanelLeftClose, PanelLeftOpen } from "lucide-react"
-import GoogleMap from "@/components/google-map"
+import GoogleMap from "@/components/map/MapProvider"
 import { useStores } from "@/hooks/use-stores"
 import { StoreSidebar } from "@/components/map/StoreSidebar"
 import { useState, useEffect } from "react"
