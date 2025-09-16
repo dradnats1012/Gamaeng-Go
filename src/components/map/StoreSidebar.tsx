@@ -1,4 +1,4 @@
-import { Store } from "@/types"
+import { InstitutionRegion, Store } from "@/types"
 import { StoreSearch } from "./StoreSearch"
 import { StoreList } from "./StoreList"
 
@@ -8,7 +8,7 @@ interface StoreSidebarProps {
   zoomLevel: number
   storeNameQuery: string
   regionQuery: string
-  institutions: string[]
+  institutions: InstitutionRegion[]
   selectedInstitution: string
   onStoreNameSearch: (query: string) => void
   onRegionSearch: (query: string) => void
@@ -29,7 +29,7 @@ export const StoreSidebar = ({
   onRegionSearch,
   onInstitutionChange,
 }: StoreSidebarProps) => (
-  <div className="w-1/4 max-w-md min-w-80 bg-white shadow-lg overflow-hidden flex flex-col">
+  <div className="w-1/4 max-w-md min-w-100 bg-white shadow-lg overflow-hidden flex flex-col">
     <StoreSearch
       storeNameQuery={storeNameQuery}
       regionQuery={regionQuery}

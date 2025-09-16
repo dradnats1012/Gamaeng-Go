@@ -6,9 +6,9 @@ export interface Store {
   roadAddress: string;
   latitude: number;
   longitude: number;
-  telNumber?: string; 
-  sectorName?: string; 
-  address?: string; 
+  telNumber?: string;
+  sectorName?: string;
+  address?: string;
 }
 
 export interface StoreListProps {
@@ -20,6 +20,12 @@ export interface StoreListProps {
 
 export interface SimpleStore {
   uuid: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface InstitutionRegion {
+  regionName: string;
   latitude: number;
   longitude: number;
 }

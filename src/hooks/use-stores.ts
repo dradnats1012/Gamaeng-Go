@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { Store, SimpleStore } from "@/types";
+import { Store, SimpleStore, InstitutionRegion } from "@/types";
 
 export const useStores = () => {
   const ZOOM_THRESHOLD = 15;
@@ -13,7 +13,7 @@ export const useStores = () => {
   const [mapCenter, setMapCenter] = useState({ lat: 37.5665, lng: 126.978 });
   const [zoomLevel, setZoomLevel] = useState(13);
   const zoomLevelRef = useRef(zoomLevel);
-  const [institutions, setInstitutions] = useState<string[]>([]);
+  const [institutions, setInstitutions] = useState<InstitutionRegion[]>([]);
   const [selectedInstitution, setSelectedInstitution] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,12 +24,12 @@ export const useStores = () => {
   useEffect(() => {
     const fetchInstitutions = async () => {
       try {
-        const response = await fetch(`${BACKEND_BASE_URL}/api/institutions/names`);
+        const response = await fetch(`${BACKEND_BASE_URL}/api/institutions/v2/names`);
         if (!response.ok) {
           throw new Error("API 요청에 실패했습니다.");
         }
-        const data = await response.json();
-        setInstitutions(data.regionNames || []);
+        const data: InstitutionRegion[] = await response.json();
+        setInstitutions(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("기관 목록을 불러오는 중 오류가 발생했습니다:", error);
       }
@@ -95,10 +95,6 @@ export const useStores = () => {
   const handleStoreSelectById = (storeUuid: string) => {
     fetchStoreDetails(storeUuid);
   };
-
-  const debouncedFetchNearbyStores = useDebouncedCallback((center) => {
-    fetchNearbyStores(center.lat, center.lng);
-  }, 500);
 
   const mapBoundsRef = useRef<google.maps.LatLngBounds | null>(null);
 
@@ -251,11 +247,19 @@ export const useStores = () => {
 
   const handleInstitutionChange = (institution: string) => {
     setSelectedInstitution(institution);
-    if (institution && institution !== "all") {
-      searchStores(`${BACKEND_BASE_URL}/api/local-stores/region`, "region", institution);
-    } else {
+    if (institution === 'all') {
       fetchNearbyStores(mapCenterRef.current.lat, mapCenterRef.current.lng);
+      return;
     }
+
+    const hit = institutions.find(i => i.regionName === institution);
+    if (!hit) return;
+
+    setRegionQuery(institution);
+    setStoreNameQuery("");
+
+    setMapCenter({ lat: hit.latitude, lng: hit.longitude });
+    setZoomLevel(Math.max(16, ZOOM_THRESHOLD));
   };
 
   // setMapBounds: 경계 설정 후(줌 충분할 때만) 디바운스 호출
@@ -264,9 +268,10 @@ export const useStores = () => {
       mapBoundsRef.current = bounds;
       if (zoomLevelRef.current >= ZOOM_THRESHOLD) {
         debouncedFetchMarkersByBounds();
+        debouncedFetchNearbyStoresByBounds();
       }
     },
-    [debouncedFetchMarkersByBounds]
+    [debouncedFetchMarkersByBounds, debouncedFetchNearbyStoresByBounds]
   );
 
   return {

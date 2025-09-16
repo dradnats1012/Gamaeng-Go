@@ -7,11 +7,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { InstitutionRegion } from "@/types"
 
 interface StoreSearchProps {
   storeNameQuery: string
   regionQuery: string
-  institutions: string[]
+  institutions: InstitutionRegion[]
   selectedInstitution: string
   onStoreNameSearch: (query: string) => void
   onRegionSearch: (query: string) => void
@@ -36,8 +37,8 @@ export const StoreSearch = ({
       <SelectContent>
         <SelectItem value="all">전체</SelectItem>
         {Array.isArray(institutions) && institutions.map((inst) => (
-          <SelectItem key={inst} value={inst}>
-            {inst}
+          <SelectItem key={inst.regionName} value={inst.regionName}>
+            {inst.regionName}
           </SelectItem>
         ))}
       </SelectContent>
