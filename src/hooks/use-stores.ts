@@ -155,61 +155,66 @@ export const useStores = () => {
 
   const searchStores = useCallback(
     async (url: string, paramName: string, query: string) => {
-      if (!query.trim()) {
-        fetchNearbyStores(mapCenterRef.current.lat, mapCenterRef.current.lng);
+      const trimmed = query.trim();
+  
+      // 🔁 쿼리 없으면: fetchNearbyStores 사용 ❌
+      if (!trimmed) {
+        const bounds = mapBoundsRef.current;
+  
+        // 지도 경계가 아직 없거나(지도 준비 전) 줌이 낮으면 목록/마커 비우고 종료
+        if (!bounds || zoomLevelRef.current < ZOOM_THRESHOLD) {
+          setStores([]);
+          setFilteredStores([]);
+          setMarkerStores([]);
+          return;
+        }
+  
+        // Bounds 기반으로 목록/마커 재조회
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+        // 즉시 호출(디바운스 말고 즉시 싱크가 자연스러우면 이렇게)
+        await Promise.all([
+          fetchNearbyStoresByLineString(sw.lat(), sw.lng(), ne.lat(), ne.lng()),
+          fetchMarkers(sw.lat(), sw.lng(), ne.lat(), ne.lng()),
+        ]);
         return;
       }
-
+  
+      // ⬇️ 아래는 기존 검색 로직 유지
       try {
         const params = new URLSearchParams({
-          [paramName]: query,
+          [paramName]: trimmed,
           page: "0",
           size: "20",
         });
         const response = await fetch(`${url}?${params.toString()}`);
-
-        if (!response.ok) {
-          throw new Error(`API 요청 실패: ${response.status}`);
-        }
+  
+        if (!response.ok) throw new Error(`API 요청 실패: ${response.status}`);
         const data = await response.json();
         const searchResults = data.content || [];
-
+  
         setStores(searchResults);
         setFilteredStores(searchResults);
-
+  
         if (searchResults.length > 0) {
-          const firstResult = searchResults[0];
-
-          if (
-            firstResult &&
-            typeof firstResult.latitude !== "undefined" &&
-            typeof firstResult.longitude !== "undefined"
-          ) {
-            const lat = parseFloat(firstResult.latitude);
-            const lng = parseFloat(firstResult.longitude);
-
-            if (!isNaN(lat) && !isNaN(lng)) {
-              setMapCenter({ lat, lng });
-              setZoomLevel(16);
-              // 검색 직후 마커도 즉시 동기화
-              if (mapBoundsRef.current) debouncedFetchMarkersByBounds();
-            } else {
-              console.warn("Invalid latitude or longitude received for store:", firstResult);
-            }
-          } else {
-            console.warn("Latitude or longitude missing for store:", firstResult);
-          }
+          const newMarkers = searchResults.map((store: Store) => ({
+            uuid: store.uuid,
+            latitude: store.latitude,
+            longitude: store.longitude,
+          }));
+          setMarkerStores(newMarkers);
         } else {
           setStores([]);
           setFilteredStores([]);
+          setMarkerStores([]);
         }
       } catch (error) {
-        console.error("검색 중 오류가 발생했습니다:", error);
+        console.error("검색 중 오류:", error);
         setStores([]);
         setFilteredStores([]);
       }
     },
-    [fetchNearbyStores, debouncedFetchMarkersByBounds]
+    [fetchNearbyStoresByLineString, fetchMarkers]
   );
 
   const debouncedStoreNameSearch = useDebouncedCallback((query) => {
@@ -235,6 +240,7 @@ export const useStores = () => {
   const handleStoreSelect = (store: Store) => {
     setSelectedStore(store);
     setMapCenter({ lat: store.latitude, lng: store.longitude });
+    setZoomLevel(16);
   };
 
   const handleMarkerClick = (store: SimpleStore | null) => {

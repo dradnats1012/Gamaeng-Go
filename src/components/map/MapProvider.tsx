@@ -10,6 +10,7 @@ interface GoogleMapProviderProps {
   stores: SimpleStore[];
   center: { lat: number; lng: number };
   selectedStore: Store | null;
+  zoom: number;
   onMarkerClick: (store: SimpleStore | null) => void;
   onCenterChanged: (center: { lat: number; lng: number }) => void;
   onZoomChanged: (zoom: number) => void;
@@ -20,6 +21,7 @@ export default function GoogleMapProvider({
   stores,
   center,
   selectedStore,
+  zoom,
   onMarkerClick,
   onCenterChanged,
   onBoundsChanged,
@@ -28,7 +30,7 @@ export default function GoogleMapProvider({
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
-  const [markerClusterer, setMarkerClusterer] = useState<MarkerClusterer | null>(null);
+  
   const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(null);
 
   // Google Maps 초기화
@@ -108,22 +110,14 @@ export default function GoogleMapProvider({
 
 
   useEffect(() => {
-    if (!map || !map.getProjection()) return
-
-    if (markerClusterer) {
-      markerClusterer.clearMarkers()
-    }
-
-    if (stores.length === 0) {
-      setMarkers([]);
+    if (!map || !map.getProjection()) {
       return;
     }
 
-    // 새 마커 생성
     const newMarkers = stores.map((store) => {
       const marker = new google.maps.Marker({
         position: { lat: store.latitude, lng: store.longitude },
-        title: store.uuid, 
+        title: store.uuid,
         icon: {
           url:
             "data:image/svg+xml;charset=UTF-8," +
@@ -136,23 +130,28 @@ export default function GoogleMapProvider({
           scaledSize: new google.maps.Size(32, 32),
           anchor: new google.maps.Point(16, 16),
         },
-      })
+      });
 
       marker.addListener("click", () => {
-        onMarkerClick(store)
-      })
+        onMarkerClick(store);
+      });
 
-      return marker
-    })
+      return marker;
+    });
 
-    // 마커 클러스터러 설정
+    setMarkers(newMarkers);
+
+    if (newMarkers.length === 0) {
+      return;
+    }
+
     const clusterer = new MarkerClusterer({
       map,
       markers: newMarkers,
       algorithm: new GridAlgorithm({ gridSize: 60, maxZoom: 16 }),
       renderer: {
         render: ({ count, position }) => {
-          const color = count > 10 ? "#DC2626" : count > 5 ? "#F59E0B" : "#3B82F6"
+          const color = count > 10 ? "#DC2626" : count > 5 ? "#F59E0B" : "#3B82F6";
           return new google.maps.Marker({
             position,
             icon: {
@@ -173,14 +172,15 @@ export default function GoogleMapProvider({
               fontWeight: "bold",
             },
             zIndex: 1000,
-          })
+          });
         },
       },
-    })
+    });
 
-    setMarkers(newMarkers)
-    setMarkerClusterer(clusterer)
-  }, [map, stores, onMarkerClick, infoWindow])
+    return () => {
+      clusterer.clearMarkers();
+    };
+  }, [map, stores, onMarkerClick]);
 
   // 선택된 가게 정보로 인포윈도우 표시
   useEffect(() => {
@@ -216,6 +216,12 @@ export default function GoogleMapProvider({
       map.panTo(new google.maps.LatLng(center.lat, center.lng));
     }
   }, [map, center, selectedStore]);
+
+  useEffect(() => {
+    if (map && zoom) {
+      map.setZoom(zoom);
+    }
+  }, [map, zoom]);
 
   // 선택된 상점 마커 강조
   useEffect(() => {

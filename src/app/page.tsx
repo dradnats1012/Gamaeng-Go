@@ -66,6 +66,7 @@ export default function MapApp() {
           stores={markerStores}
           center={mapCenter}
           selectedStore={selectedStore}
+          zoom={zoomLevel}
           onMarkerClick={handleMarkerClick}
           onCenterChanged={setMapCenter}
           onZoomChanged={setZoomLevel}
