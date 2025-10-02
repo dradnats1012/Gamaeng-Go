@@ -29,7 +29,8 @@ export default function GoogleMapProvider({
 }: GoogleMapProviderProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   
   const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(null);
 
@@ -83,17 +84,21 @@ export default function GoogleMapProvider({
   useEffect(() => {
     if (!map) return
 
+    let boundsChangeTimeout: NodeJS.Timeout;
+
     const dragEndListener = map.addListener("dragend", () => {  // dragend: 드래그 끝났을 때
       const newCenter = map.getCenter();  // 새로운 중심점 가져오기
       if (newCenter) {
         onCenterChanged({ lat: newCenter.lat(), lng: newCenter.lng() });
       }
-    
-      const bounds = map.getBounds();  // 현재 보이는 지도 영역
-      if (bounds) {
-        onBoundsChanged(bounds);
-      }
 
+      clearTimeout(boundsChangeTimeout);
+      boundsChangeTimeout = setTimeout(() => {
+        const bounds = map.getBounds();
+        if (bounds) {
+          onBoundsChanged(bounds);
+        }
+      }, 100);
     });
     
     const zoomListener = map.addListener("zoom_changed", () => {  // zoom_changed: 줌 레벨 변경시
@@ -114,16 +119,39 @@ export default function GoogleMapProvider({
     }
   }, [map, onCenterChanged, onZoomChanged])
 
+
   // 마커 생성 및 클러스터링
   useEffect(() => {
-    if (!map || !map.getProjection()) {
-      return;
-    }
+    if (!map || !map.getProjection()) return;
 
-    const newMarkers = stores.map((store) => {
+    // 현재 마커들을 Map으로 변환 (빠른 조회를 위해)
+    const currentMarkerMap = new Map<string, google.maps.Marker>(
+      markersRef.current.map(marker => [marker.getTitle() || '', marker])
+    );
+
+    // 새로운 stores의 UUID Set
+    const newStoreIds = new Set<string>(stores.map(store => store.uuid));
+    
+    // 1. 삭제할 마커 찾기 (stores에 없는 마커)
+    const markersToRemove: string[] = [];
+    currentMarkerMap.forEach((marker, uuid) => {
+      if (!newStoreIds.has(uuid)) {
+        marker.setMap(null);  // 지도에서 제거
+        markersToRemove.push(uuid);
+      }
+    });
+    
+    // 2. 추가할 stores 찾기
+    const storesToAdd = stores.filter(store => 
+      !currentMarkerMap.has(store.uuid)
+    );
+    
+    // 3. 새 마커만 생성
+    const newMarkers = storesToAdd.map(store => {
       const marker = new google.maps.Marker({
-        position: { lat: store.latitude, lng: store.longitude },  // 마커 위치
-        title: store.uuid,  // 마커 식별자
+        position: { lat: store.latitude, lng: store.longitude },
+        title: store.uuid,
+        map: map,
         icon: {  // 커스텀 SVG 아이콘
           url:
             "data:image/svg+xml;charset=UTF-8," +
@@ -137,57 +165,72 @@ export default function GoogleMapProvider({
           anchor: new google.maps.Point(16, 16),  // 아이콘 기준점 (중앙)
         },
       });
-
+      
       marker.addListener("click", () => {
         onMarkerClick(store);
       });
-
+      
       return marker;
     });
-
-    setMarkers(newMarkers);
-
-    if (newMarkers.length === 0) {
-      return;
-    }
-
-    // 클러스터링
-    const clusterer = new MarkerClusterer({
-      map,
-      markers: newMarkers,
-      algorithm: new GridAlgorithm({ gridSize: 60, maxZoom: 16 }),  // 60픽셀 그리드로 나눔 + 줌 16 이상에서는 클러스터링 안 함
-      renderer: {
-        render: ({ count, position }) => {
-          const color = count > 10 ? "#DC2626" : count > 5 ? "#F59E0B" : "#3B82F6";
-          return new google.maps.Marker({
-            position,
-            icon: {
-              url:
-                "data:image/svg+xml;charset=UTF-8," +
-                encodeURIComponent(`
-                <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="20" cy="20" r="18" fill="${color}" stroke="white" strokeWidth="3"/>
-                </svg>
-              `),
-              scaledSize: new google.maps.Size(40, 40),
-              anchor: new google.maps.Point(20, 20),
-            },
-            label: {
-              text: count.toString(),
-              color: "white",
-              fontSize: "12px",
-              fontWeight: "bold",
-            },
-            zIndex: 1000,
-          });
-        },
-      },
+    
+    // 4. markersRef 업데이트
+    markersToRemove.forEach(uuid => currentMarkerMap.delete(uuid));
+    newMarkers.forEach(marker => {
+      const title = marker.getTitle();
+      if (title) {
+        currentMarkerMap.set(title, marker);
+      }
     });
-
+    
+    markersRef.current = Array.from(currentMarkerMap.values());
+    
+    // 5. 클러스터러 업데이트
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+      clustererRef.current.addMarkers(markersRef.current);
+    } else if (markersRef.current.length > 0) {
+      // 첫 렌더링 시 클러스터러 생성
+      clustererRef.current = new MarkerClusterer({
+        map,
+        markers: markersRef.current,
+        algorithm: new GridAlgorithm({ gridSize: 60, maxZoom: 16 }),
+        renderer: {
+          render: ({ count, position }) => {
+            const color = count > 10 ? "#DC2626" : count > 5 ? "#F59E0B" : "#3B82F6";
+            return new google.maps.Marker({
+              position,
+              icon: {
+                url:
+                  "data:image/svg+xml;charset=UTF-8," +
+                  encodeURIComponent(`
+                  <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="20" cy="20" r="18" fill="${color}" stroke="white" strokeWidth="3"/>
+                  </svg>
+                `),
+                scaledSize: new google.maps.Size(40, 40),
+                anchor: new google.maps.Point(20, 20),
+              },
+              label: {
+                text: count.toString(),
+                color: "white",
+                fontSize: "12px",
+                fontWeight: "bold",
+              },
+              zIndex: 1000,
+            });
+          },
+        },
+      });
+    }
     return () => {
-      clusterer.clearMarkers();
+      if (clustererRef.current) {
+        clustererRef.current.clearMarkers();
+      }
     };
   }, [map, stores, onMarkerClick]);
+
+  // 현재 인포윈도우가 열린 마커를 추적하기 위한 ref
+  const currentInfoWindowMarkerRef = useRef<google.maps.Marker | null>(null);
 
   // 선택된 가게 정보로 인포윈도우 표시
   useEffect(() => {
@@ -195,14 +238,21 @@ export default function GoogleMapProvider({
 
     if (!selectedStore) {
       infoWindow.close();
+      currentInfoWindowMarkerRef.current = null;
       return;
     }
-
-    const targetMarker = markers.find(marker =>
-      marker.getTitle() === selectedStore.uuid  // UUID로 마커 찾기
+    
+    const targetMarker = markersRef.current.find(marker =>
+      marker.getTitle() === selectedStore.uuid
     );
 
     if (targetMarker) {
+      // 위치가 같으면 스킵
+      if (currentInfoWindowMarkerRef.current === targetMarker) {
+        console.log("같은 마커의 인포윈도우가 이미 열려있음");
+        return;
+      }
+
       const detailedStore = selectedStore;
       // HTML 형식의 정보창 내용 설정
       infoWindow.setContent(`
@@ -218,9 +268,10 @@ export default function GoogleMapProvider({
       `);
       // 특정 마커 위에 정보창 열기
       infoWindow.open(map, targetMarker);
+      currentInfoWindowMarkerRef.current = targetMarker; // 현재 열린 마커 추적
     }
 
-  }, [map, infoWindow, selectedStore, markers]);
+  }, [map, infoWindow, selectedStore]);
 
   // 지도 상태 동기화 (중심점 변경 시 지도 이동)
   useEffect(() => {
@@ -238,12 +289,10 @@ export default function GoogleMapProvider({
 
   // 선택된 상점 마커 강조
   useEffect(() => {
-    if (!selectedStore || !markers.length) return
+    if (!selectedStore || !markersRef.current.length) return
 
-    markers.forEach((marker) => {
+    markersRef.current.forEach((marker) => {
       const isSelected = marker.getTitle() === selectedStore.uuid;
-      // 선택된 마커: 빨간색(#DC2626), 크기 40x40
-      // 일반 마커: 파란색(#3B82F6), 크기 32x32
       marker.setIcon({
         url:
           "data:image/svg+xml;charset=UTF-8," +
@@ -255,24 +304,60 @@ export default function GoogleMapProvider({
         `),
         scaledSize: new google.maps.Size(isSelected ? 40 : 32, isSelected ? 40 : 32),
         anchor: new google.maps.Point(isSelected ? 20 : 16, isSelected ? 20 : 16),
-      })
-    })
-  }, [selectedStore, markers])
+      });
+    });
+  }, [selectedStore])
 
-  //선택된 마커가 지도 bounds 밖으로 벗어나면 선택 해제
   useEffect(() => {
     if (!map || !selectedStore) return;
 
-    const listener = map.addListener("bounds_changed", () => {
-      const bounds = map.getBounds();  // 현재 보이는 영역
+    const checkBounds = () => {
+      const bounds = map.getBounds();
       if (!bounds) return;
 
-      const storeLatLng = new google.maps.LatLng(selectedStore.latitude, selectedStore.longitude);
+      // 지도 영역에서 안전 마진 계산 (인포윈도우 크기 고려)
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      
+      // 현재 보이는 영역의 크기 계산
+      const latRange = ne.lat() - sw.lat();
+      const lngRange = ne.lng() - sw.lng();
 
-      if (!bounds.contains(storeLatLng)) {  // 영역 내 포함 여부 체크
-        console.log("선택된 마커가 지도 범위를 벗어났습니다. 선택 해제합니다.");
-        onMarkerClick(null); // 선택 해제
+      // 인포윈도우를 고려한 여유 공간 (화면의 85%만 안전 영역으로)
+      const latMargin = latRange * 0.15;
+      const lngMargin = lngRange * 0.15;
+
+      // 안전 영역 범위 설정
+      // 인포윈도우는 마커 위에 뜨므로 상단 여유를 적게 둠
+      const safeArea = {
+        north: ne.lat() - latMargin * 0.3,  // 상단 여유 적게
+        south: sw.lat() + latMargin,        // 하단 여유 크게
+        east: ne.lng() - lngMargin,
+        west: sw.lng() + lngMargin
+      };
+
+      // 선택된 가게 위치
+      const storeLat = selectedStore.latitude;
+      const storeLng = selectedStore.longitude;
+
+      // 안전 영역 안에 있는지 체크
+      const isInSafeArea = 
+        storeLat <= safeArea.north &&  // 북쪽 경계 안
+        storeLat >= safeArea.south &&  // 남쪽 경계 안
+        storeLng <= safeArea.east &&   // 동쪽 경계 안
+        storeLng >= safeArea.west;     // 서쪽 경계 안
+
+      // 안전 영역을 벗어났을 때만 선택 해제
+      if (!isInSafeArea) {
+        console.log("선택된 가게가 안전 영역을 벗어났습니다. 선택 해제합니다.");
+        onMarkerClick(null);  // 선택 해제 → 인포윈도우도 자동으로 닫힘
       }
+    };
+
+    // bounds_changed 이벤트에 연결
+    const listener = map.addListener("bounds_changed", () => {
+      // 살짝 딜레이를 줘서 성능 최적화
+      setTimeout(checkBounds, 100);
     });
 
     return () => {
