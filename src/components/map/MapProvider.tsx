@@ -223,8 +223,14 @@ export default function GoogleMapProvider({
       });
     }
     return () => {
-      if (clustererRef.current) {
-        clustererRef.current.clearMarkers();
+      try {
+        if (clustererRef.current) {
+          clustererRef.current.clearMarkers();
+          clustererRef.current = null;  // ref 초기화
+        }
+      } catch (error) {
+        console.warn("클러스터러 정리 중 사.소.한 에러 (무시 요망):", error);
+        clustererRef.current = null;
       }
     };
   }, [map, stores, onMarkerClick]);
@@ -347,11 +353,42 @@ export default function GoogleMapProvider({
         storeLng <= safeArea.east &&   // 동쪽 경계 안
         storeLng >= safeArea.west;     // 서쪽 경계 안
 
-      // 안전 영역을 벗어났을 때만 선택 해제
-      if (!isInSafeArea) {
-        console.log("선택된 가게가 안전 영역을 벗어났습니다. 선택 해제합니다.");
-        onMarkerClick(null);  // 선택 해제 → 인포윈도우도 자동으로 닫힘
+      // 안전 영역을 벗어났을 때만 인포윈도우만 닫기 (선택 해제 아님)
+      if (!isInSafeArea && infoWindow) {
+        console.log("[안전 영역을 벗어남] 인포윈도우만 닫습니다.");
+      
+        // 인포윈도우만 닫기 (선택 상태는 유지)
+        infoWindow.close();
+        
+        // currentInfoWindowMarkerRef도 초기화 (다시 화면에 들어왔을 때 재표시를 위해)
+        if (currentInfoWindowMarkerRef) {
+          currentInfoWindowMarkerRef.current = null;
+        }
+      } else if (infoWindow) {
+        // 안전 영역 안에 다시 들어왔을 때 인포윈도우가 닫혀있다면 다시 열기
+        const targetMarker = markersRef.current.find(marker =>
+          marker.getTitle() === selectedStore.uuid
+        );
+        
+        if (targetMarker && !currentInfoWindowMarkerRef.current) {
+          console.log("[안전 영역] 인포윈도우 재표시");
+          
+          const detailedStore = selectedStore;
+          infoWindow.setContent(`
+            <div style="padding: 8px; max-width: 250px;">
+              <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold;">${detailedStore.storeName}</h3>
+              <p style="margin: 4px 0; font-size: 14px; color: #666; font-weight: bold;">${detailedStore.address}</p>
+              <p style="margin: 4px 0; font-size: 14px;">📞 ${detailedStore.telNumber || '정보 없음'}</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                <span style="background: #E5E7EB; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">${detailedStore.localBill}</span>
+                <span style="font-size: 12px;">${detailedStore.region}</span>
+              </div>
+            </div>
+          `);
+          infoWindow.open(map, targetMarker);
+          currentInfoWindowMarkerRef.current = targetMarker;
       }
+    }
     };
 
     // bounds_changed 이벤트에 연결
