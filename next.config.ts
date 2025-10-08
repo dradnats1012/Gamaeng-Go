@@ -2,8 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: {
-    buildActivity: false,
-    buildActivityPosition: 'bottom-right' as const,
+    position: undefined,
   },
 
   // eslint-disable-next-line @typescript-eslint/require-await

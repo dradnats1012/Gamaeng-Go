@@ -156,11 +156,11 @@ export const useStores = () => {
   const searchStores = useCallback(
     async (url: string, paramName: string, query: string) => {
       const trimmed = query.trim();
-  
+
       // 🔁 쿼리 없으면: fetchNearbyStores 사용 ❌
       if (!trimmed) {
         const bounds = mapBoundsRef.current;
-  
+
         // 지도 경계가 아직 없거나(지도 준비 전) 줌이 낮으면 목록/마커 비우고 종료
         if (!bounds || zoomLevelRef.current < ZOOM_THRESHOLD) {
           setStores([]);
@@ -168,7 +168,7 @@ export const useStores = () => {
           setMarkerStores([]);
           return;
         }
-  
+
         // Bounds 기반으로 목록/마커 재조회
         const ne = bounds.getNorthEast();
         const sw = bounds.getSouthWest();
@@ -179,7 +179,7 @@ export const useStores = () => {
         ]);
         return;
       }
-  
+
       // ⬇️ 아래는 기존 검색 로직 유지
       try {
         const params = new URLSearchParams({
@@ -188,15 +188,16 @@ export const useStores = () => {
           size: "20",
         });
         const response = await fetch(`${url}?${params.toString()}`);
-  
+
         if (!response.ok) throw new Error(`API 요청 실패: ${response.status}`);
         const data = await response.json();
         const searchResults = data.content || [];
-  
+
         setStores(searchResults);
         setFilteredStores(searchResults);
-  
+
         if (searchResults.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           const newMarkers = searchResults.map((store: Store) => ({
             uuid: store.uuid,
             latitude: store.latitude,
